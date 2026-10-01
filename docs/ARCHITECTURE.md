@@ -52,10 +52,9 @@ flowchart TB
         end
         subgraph Engine["extraction-engine (mounted)"]
             REG["Provider registry"]
-            OPENR["openrouter"]
-            OLL["ollama"]
-            TESS["tesseract"]
-            STUB["stub"]
+            OPENR["openrouter<br/>(PROD default/only)"]
+            OLL["ollama<br/>(DEV default)"]
+            STUB["stub<br/>(test-only)"]
         end
         DB[("SQLite<br/>data/database/finance.db")]
         FILES[("Local files<br/>data/sources · data/reports")]
@@ -70,7 +69,7 @@ flowchart TB
     MONTHS --> DB
     REPORTS --> DB & FILES
     EXTR --> REG
-    REG --> OPENR & OLL & TESS & STUB
+    REG --> OPENR & OLL & STUB
     OPENR -->|HTTPS + key| CLOUD
     FASTAPI --> DB
 ```
@@ -87,7 +86,7 @@ flowchart TB
 | PDF | WeasyPrint (HTML→PDF) | Pure-python, deterministic, no office suite |
 | QA | poppler (pdftotext/pdfinfo) | Verify the rendered artifact |
 | Auth | PyJWT + bcrypt | Stateless token, hashed password |
-| Extraction | Pluggable providers | openrouter (cloud) default; ollama/tesseract/stub |
+| Extraction | Pluggable providers | openrouter (PROD) · ollama (DEV); stub = test-only |
 | Runtime | Docker Compose | Two containers, host-mounted data |
 
 ---
@@ -193,8 +192,10 @@ status flip, never a file removal.
 A configured provider reads a scan into structured receipt/payment rows, each
 with a **confidence** score and an optional detected period/opening balance.
 Rows below the threshold are marked `REVIEW_REQUIRED` and flagged in the UI.
-Providers: `openrouter` (cloud, default), `ollama` (local), `tesseract` (OCR),
-`stub` (offline/test). Engine is self-contained and any provider is deletable.
+Two product providers: `openrouter` (cloud, PROD default & only allowed) and
+`ollama` (local, DEV default). `stub` is a deterministic, offline provider used
+only by the test suite (never a product provider). The engine is self-contained
+and any provider is deletable without affecting the others.
 
 ### 5.5 Review & correction
 Inline per-row **edit / accept / remove**, plus **move between Receipts and

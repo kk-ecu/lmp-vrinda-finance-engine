@@ -25,7 +25,7 @@ FastAPI container  (uvicorn :8000)
    │
    ├── SQLite  (./data/database/finance.db)
    │
-   └── Extraction engine  →  OpenRouter (cloud)  /  Ollama (local)  /  Tesseract
+   └── Extraction engine  →  OpenRouter (cloud, PROD)  /  Ollama (local, DEV)
 ```
 
 Common failure-to-layer mapping:
