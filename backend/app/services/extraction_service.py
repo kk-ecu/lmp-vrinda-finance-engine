@@ -49,15 +49,37 @@ def extract_file(file_path: Path):
     """Run the configured provider. Returns (result, config).
 
     Raises RuntimeError with a readable message if the engine or provider is
-    unavailable, so the API can translate it to a 4xx/5xx cleanly.
+    unavailable, so the API can translate it to a 4xx/5xx cleanly. Logs each
+    step so failures are localizable in `docker logs`.
     """
+    import time
+
+    from app.logging_config import get_logger
+
+    log = get_logger("extraction")
+
     if _ee is None:
+        log.error("extract_file: engine not importable: %s", _ENGINE_IMPORT_ERROR)
         raise RuntimeError(f"Extraction engine not available: {_ENGINE_IMPORT_ERROR}")
+
     cfg = _ee.load_config()
+    size = file_path.stat().st_size if file_path.exists() else -1
+    log.info("extract: start provider=%s file=%s size=%dB", cfg.provider, file_path.name, size)
+    start = time.perf_counter()
     try:
         result = _ee.extract_from_file(file_path, cfg)
     except _ee.ProviderUnavailable as exc:
+        log.error("extract: provider '%s' unavailable: %s", cfg.provider, exc)
         raise RuntimeError(str(exc)) from exc
     except _ee.ExtractionError as exc:
+        log.error("extract: provider '%s' error: %s", cfg.provider, exc)
         raise RuntimeError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        log.exception("extract: unexpected failure with provider '%s'", cfg.provider)
+        raise RuntimeError(f"Unexpected extraction error: {exc}") from exc
+    dur = (time.perf_counter() - start) * 1000
+    log.info(
+        "extract: done provider=%s model=%s receipts=%d payments=%d period=%s (%.0fms)",
+        result.provider, result.model, len(result.receipts), len(result.payments), result.period, dur,
+    )
     return result, cfg

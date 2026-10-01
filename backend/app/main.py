@@ -24,7 +24,9 @@ def _load_repo_env() -> None:
 
 _load_repo_env()
 
-from fastapi import Depends, FastAPI
+import time
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth as auth_router
@@ -35,12 +37,17 @@ from app.api import sources as sources_router
 from app.auth import require_auth
 from app.config.settings import get_settings
 from app.db import init_db
+from app.logging_config import get_logger, setup_logging
 
+setup_logging()
+log = get_logger("http")
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
+    log.info("Starting up — env=%s pdf_engine=%s auth=%s", settings.app_env, settings.pdf_engine, settings.auth_enabled)
     settings.ensure_directories()
     init_db()
     # Seed AppState (password hash from .env on first run) and warn loudly if the
@@ -70,6 +77,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _access_log(request: Request, call_next):
+    """Log every request: method, path, status, and duration — for diagnosis."""
+    start = time.perf_counter()
+    client = request.client.host if request.client else "?"
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # noqa: BLE001
+        dur = (time.perf_counter() - start) * 1000
+        log.exception("%s %s from %s FAILED after %.0fms: %s", request.method, request.url.path, client, dur, exc)
+        raise
+    dur = (time.perf_counter() - start) * 1000
+    log.info("%s %s -> %s (%.0fms)", request.method, request.url.path, response.status_code, dur)
+    return response
 
 
 @app.get("/api/health")
