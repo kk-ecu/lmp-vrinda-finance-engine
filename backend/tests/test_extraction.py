@@ -129,6 +129,83 @@ class TestConfigFlag:
         assert "test_extraction_enabled" in c
         assert "extraction" in c
 
+    def test_config_lists_allowed_providers_dev(self, client):
+        c = client.get("/api/config").json()
+        # Default test env is 'test' (not production) -> all providers allowed.
+        assert "allowed_providers" in c
+        assert "openrouter" in c["allowed_providers"]
+        assert "stub" in c["allowed_providers"]
+
+
+class TestProdProviderLockdown:
+    """In production only openrouter may serve extraction (API-enforced)."""
+
+    def test_dev_allows_stub_provider(self, client):
+        from tests.conftest import create_month
+
+        mid = create_month(client, opening="0")
+        client.post(
+            f"/api/months/{mid}/sources",
+            files={"file": ("s.jpg", b"\xff\xd8\xffdummy", "image/jpeg")},
+        )
+        # In the default (non-prod) test env, stub is allowed and succeeds.
+        r = client.post(f"/api/months/{mid}/extract")
+        # stub is the configured default in tests via EXTRACTION_PROVIDER=stub set per-test;
+        # here no override, so just assert it is NOT a policy rejection.
+        assert r.status_code != 409 or "not permitted" not in r.text
+
+    def test_prod_blocks_non_openrouter(self, tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+
+        db_file = tmp_path / "prod.db"
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("AUTH_ENABLED", "false")  # focus on provider policy
+        monkeypatch.setenv("EXTRACTION_PROVIDER", "stub")  # a non-openrouter default
+
+        import app.db as db_module
+        from app.config.settings import get_settings
+        from app.db import Base
+        get_settings.cache_clear()
+
+        engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False}, future=True)
+        TS = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+        monkeypatch.setattr(db_module, "engine", engine)
+        monkeypatch.setattr(db_module, "SessionLocal", TS)
+        import app.models  # noqa: F401
+        Base.metadata.create_all(bind=engine)
+
+        from app.db import get_db
+        from app.main import app
+
+        def _o():
+            s = TS()
+            try:
+                yield s
+            finally:
+                s.close()
+
+        app.dependency_overrides[get_db] = _o
+        with TestClient(app) as c:
+            # config reflects production lockdown
+            cfg = c.get("/api/config").json()
+            assert cfg["is_production"] is True
+            assert cfg["allowed_providers"] == ["openrouter"]
+
+            # Create a month + source, then try to extract with the stub default -> blocked.
+            mid = c.post("/api/months", json={"year": 2026, "month": 9, "opening_balance": "0"}).json()["id"]
+            c.post(f"/api/months/{mid}/sources", files={"file": ("s.jpg", b"\xff\xd8\xffx", "image/jpeg")})
+            r = c.post(f"/api/months/{mid}/extract")
+            assert r.status_code == 409
+            assert "not permitted" in r.json()["detail"]
+
+            # test-bench override to a non-openrouter provider is also blocked.
+            r2 = c.post("/api/test/extract", files={"file": ("s.jpg", b"\xff\xd8\xffx", "image/jpeg")}, data={"provider": "tesseract"})
+            assert r2.status_code == 409
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+
 
 class TestAdmin:
     def test_admin_lists_months_with_counts(self, client):

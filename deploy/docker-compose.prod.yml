@@ -7,7 +7,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: lmp-vrinda-api
     environment:
-      APP_ENV: production
+      APP_ENV: ${APP_ENV:-production}
       DATA_ROOT: /app/data
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
       PDF_ENGINE: weasyprint

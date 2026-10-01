@@ -45,6 +45,22 @@ class Settings(BaseSettings):
     # PDF rendering engine: "weasyprint" (default) or "libreoffice".
     pdf_engine: str = "weasyprint"
 
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.lower() in ("prod", "production")
+
+    @property
+    def allowed_providers(self) -> tuple[str, ...]:
+        """Extraction providers permitted to serve traffic in this environment.
+
+        In production only the hosted, operationally-supported provider
+        (openrouter) is allowed. Local/experimental providers are blocked so a
+        real deployment can never silently extract via ollama/tesseract/stub.
+        """
+        if self.is_production:
+            return ("openrouter",)
+        return ("openrouter", "ollama", "tesseract", "stub")
+
     # Feature flags. Set TEST_EXTRACTION_ENABLED=false to hide the /test-extraction page.
     test_extraction_enabled: bool = True
 

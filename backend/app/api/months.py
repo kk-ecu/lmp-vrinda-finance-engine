@@ -16,6 +16,7 @@ from app.models import (
     Receipt,
     Validation,
 )
+from app.config.settings import get_settings
 from app.money import format_amount, paise_to_rupees, rupees_to_paise
 from app.schemas.models import (
     CorrectionIn,
@@ -160,6 +161,18 @@ def extract_month(month_id: str, replace: bool = True, db: Session = Depends(get
     month = get_month_or_404(db, month_id)
     if not extraction_service.engine_available():
         raise HTTPException(status_code=503, detail="Extraction engine is not available.")
+
+    # Environment policy: in production only openrouter may serve extraction.
+    _settings = get_settings()
+    _active_provider = extraction_service.engine_status().get("provider")
+    if _active_provider not in _settings.allowed_providers:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Provider '{_active_provider}' is not permitted in {_settings.app_env}. "
+                f"Allowed: {', '.join(_settings.allowed_providers)}."
+            ),
+        )
 
     active_sources = [s for s in month.sources if s.status != "IGNORED" and s.path]
     if not active_sources:

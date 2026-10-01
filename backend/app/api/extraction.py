@@ -50,13 +50,44 @@ def admin_list_months(db: Session = Depends(get_db), _: str = Depends(require_au
 @router.get("/config")
 def app_config():
     """Public feature flags / config the frontend can read."""
+    s = get_settings()
     status = extraction_service.engine_status()
     return {
-        "auth_enabled": settings.auth_enabled,
-        "test_extraction_enabled": settings.test_extraction_enabled,
-        "pdf_engine": settings.pdf_engine,
+        "app_env": s.app_env,
+        "is_production": s.is_production,
+        "auth_enabled": s.auth_enabled,
+        "test_extraction_enabled": s.test_extraction_enabled,
+        "pdf_engine": s.pdf_engine,
+        # Providers the API will actually serve in THIS environment. The UI uses
+        # this to show only permitted providers (openrouter-only in production).
+        "allowed_providers": list(s.allowed_providers),
         "extraction": status,
     }
+
+
+def _enforce_provider_policy(provider: str | None) -> None:
+    """Reject extraction with a provider not permitted in this environment.
+
+    `provider` is the effective provider for the call (the per-call override if
+    given, else the configured default). In production only 'openrouter' is
+    allowed; anything else is refused with 409 so the API never serves traffic
+    through an unsupported provider.
+    """
+    s = get_settings()
+    effective = provider
+    if not effective:
+        # No override — fall back to the configured default.
+        if extraction_service.engine_available():
+            effective = extraction_service.engine_status().get("provider")
+    allowed = s.allowed_providers
+    if effective and effective not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Provider '{effective}' is not permitted in {s.app_env}. "
+                f"Allowed: {', '.join(allowed)}."
+            ),
+        )
 
 
 @router.post("/upload-first")
@@ -69,6 +100,9 @@ async def upload_first(file: UploadFile, db: Session = Depends(get_db), _: str =
     """
     if not extraction_service.engine_available():
         raise HTTPException(status_code=503, detail="Extraction engine not available.")
+
+    # Environment policy: block the configured provider if not permitted here.
+    _enforce_provider_policy(None)
 
     data = await file.read()
     if not data:
@@ -123,10 +157,13 @@ async def test_extract(file: UploadFile, provider: str | None = Form(default=Non
     Optional `provider` overrides the configured one for this call only, so the
     UI can compare openrouter / ollama / tesseract / stub side by side.
     """
-    if not settings.test_extraction_enabled:
+    if not get_settings().test_extraction_enabled:
         raise HTTPException(status_code=404, detail="Test extraction is disabled.")
     if not extraction_service.engine_available():
         raise HTTPException(status_code=503, detail="Extraction engine not available.")
+
+    # Environment policy: block providers not permitted here (prod = openrouter only).
+    _enforce_provider_policy(provider)
 
     data = await file.read()
     if not data:

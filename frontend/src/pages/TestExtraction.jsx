@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 
-const PROVIDERS = ['(configured default)', 'openrouter', 'ollama', 'tesseract', 'stub'];
+const DEFAULT_OPTION = '(configured default)';
 
 function confBadge(c) {
   const pct = Math.round((c ?? 1) * 100);
@@ -11,7 +11,7 @@ function confBadge(c) {
 
 export default function TestExtraction({ onBack }) {
   const inputRef = useRef(null);
-  const [provider, setProvider] = useState(PROVIDERS[0]);
+  const [provider, setProvider] = useState(DEFAULT_OPTION);
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -23,12 +23,17 @@ export default function TestExtraction({ onBack }) {
     api.appConfig().then(setStatus).catch(() => {});
   }, []);
 
+  // Only providers the backend will actually serve in this environment
+  // (openrouter-only in production). Falls back to a safe default pre-load.
+  const allowed = status?.allowed_providers || ['openrouter'];
+  const providerOptions = [DEFAULT_OPTION, ...allowed];
+
   async function run() {
     if (!file) { setError('Choose a file first.'); return; }
     setBusy(true); setError(''); setResult(null); setElapsed(null);
     const started = performance.now();
     try {
-      const prov = provider === PROVIDERS[0] ? undefined : provider;
+      const prov = provider === DEFAULT_OPTION ? undefined : provider;
       const res = await api.testExtract(file, prov);
       setResult(res);
       setElapsed(((performance.now() - started) / 1000).toFixed(1));
@@ -56,8 +61,10 @@ export default function TestExtraction({ onBack }) {
           <div className="row-between">
             <h3 style={{ margin: 0 }}>Engine</h3>
             <span className="muted">
-              default: <strong>{status.extraction.provider}</strong> · threshold {status.extraction.low_confidence_threshold} ·
-              loaded: {(status.extraction.providers_loaded || []).join(', ')}
+              env: <strong>{status.app_env}</strong> · default: <strong>{status.extraction.provider}</strong> ·
+              threshold {status.extraction.low_confidence_threshold} ·
+              allowed: {(status.allowed_providers || []).join(', ')}
+              {status.is_production ? ' (production: openrouter only)' : ''}
             </span>
           </div>
         </div>
@@ -68,7 +75,7 @@ export default function TestExtraction({ onBack }) {
           <div className="field">
             <label>Provider</label>
             <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-              {PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {providerOptions.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div className="field">
