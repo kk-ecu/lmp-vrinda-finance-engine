@@ -5,8 +5,15 @@
 	encode gzip
 
 	# API calls go to the FastAPI backend container.
+	# Vision extraction can take 30-120s, so allow long-lived proxied requests.
 	handle /api/* {
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			transport http {
+				read_timeout 300s
+				write_timeout 300s
+				dial_timeout 10s
+			}
+		}
 	}
 
 	# Everything else is the React single-page app (static files).
