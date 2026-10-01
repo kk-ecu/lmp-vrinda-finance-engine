@@ -134,8 +134,10 @@ install_docker
 configure
 launch
 
-# shellcheck disable=SC1090
-. "$ENV_FILE"
+# Read only the two display values WITHOUT sourcing the file — a bcrypt hash
+# contains '$' sequences that bash would try (and fail) to expand under set -u.
+SITE_ADDRESS="$(sed -n 's/^SITE_ADDRESS=//p' "$ENV_FILE")"
+AUTH_USERNAME="$(sed -n 's/^AUTH_USERNAME=//p' "$ENV_FILE")"
 say "Done."
 if [ "$SITE_ADDRESS" = ":80" ]; then
   echo "  Open:  http://<your-server-ip>/"
