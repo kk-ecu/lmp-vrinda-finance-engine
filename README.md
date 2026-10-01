@@ -1,95 +1,64 @@
 # LMP Vrinda Finance Engine
 
-Lightweight, local-first monthly financial statement engine for LMP Vrinda Apartment Association.
+Local-first monthly financial-statement engine for LMP Vrinda Apartment
+Association. It turns scanned source documents into a validated, signed one-page
+statement (DOCX + PDF).
 
-## Product workflow
+**Workflow:** Upload scan → Extract → Review & correct → Approve → Generate → Final.
 
-**Upload → Resolve Exceptions → Approve → Final Report**
+Internally: `Source → Extraction → Structured data → Validation → Approval →
+DOCX → PDF → QA → FINAL` (amendable only via an audited Reopen → new revision).
 
-Internally:
+## Stack
+React (Vite) · FastAPI · SQLite · WeasyPrint (DOCX/PDF) · JWT auth · Caddy +
+Docker · pluggable extraction engine. Single-admin, local-first; no cloud DB,
+queue, or microservices.
 
-```text
-Source Documents
-      ↓
-Extraction
-      ↓
-Structured Monthly Data
-      ↓
-Financial Validation
-      ↓
-User Approval
-      ↓
-DOCX Generation
-      ↓
-PDF Rendering
-      ↓
-Rendered QA
-      ↓
-FINAL
-```
+## Extraction providers (two)
+| Provider | When | Notes |
+|---|---|---|
+| **openrouter** (cloud, Gemini 2.5 Flash) | **PROD default & only allowed** | needs `OPENROUTER_API_KEY` |
+| **ollama** (local, qwen2.5vl:7b) | **DEV default** | needs Ollama + the model + RAM |
 
-## V1 technology
+(`stub` exists for offline tests only — not a product provider.) The default is
+chosen from `APP_ENV` (dev→ollama, prod→openrouter) and enforced by the API.
 
-- React
-- FastAPI / Python
-- SQLite
-- Local filesystem
-- DOCX generation
-- PDF rendering
-- Podman
-- Apple Silicon Mac M2
-
-No Kubernetes, Kafka, Redis, cloud database, or microservice fleet is required for V1.
-
-## Workspace
-
-```text
-LMP-Vrinda-Finance-Engine/
-├── README.md
-├── Makefile
-├── podman-compose.yml
-├── .env.example
-├── .gitignore
-├── docs/                  # Complete product/specification pack
-├── backend/               # FastAPI modular monolith
-├── frontend/              # React application
-├── data/                  # Persistent local data; not committed
-└── scripts/               # Developer/operations scripts
-```
-
-## Start building
-
-### Option A — editor-first
-
-Open this directory in VS Code, Cursor, IntelliJ, PyCharm, or any editor.
-
-### Option B — Podman
-
+## Run locally (development)
 ```bash
-podman compose up --build
+make install-backend          # creates backend/.venv and installs deps
+make install-frontend         # npm install
+cp .env.example .env          # then set AUTH_PASSWORD_HASH (make hash-password) etc.
+make backend                  # FastAPI on :8000
+make frontend                 # Vite on :5173   (3000 is used by Podman's gvproxy)
+```
+Open `http://localhost:5173`. API docs at `http://localhost:8000/docs`.
+
+## Deploy to a VPS (production)
+One script does everything (installs Docker, generates secrets, builds, HTTPS):
+```bash
+git clone <repo> && cd lmp-vrinda-finance-engine
+./deploy.sh                   # answers: env, domain, admin password, OpenRouter key
+```
+See **`deploy/README.md`** for the full guide (DNS, HTTPS, updates, backups).
+
+## Tests
+```bash
+make test                     # backend pytest suite
 ```
 
-Frontend: `http://localhost:3000`
-Backend: `http://localhost:8000`
-API docs: `http://localhost:8000/docs`
+## Documentation (authoritative, kept current)
+- **`docs/ARCHITECTURE.md`** — overall architecture, system design, feature
+  catalog, use cases, full C4 model, data model, env policy. **Start here.**
+- **`docs/DEBUGGING.md`** — layer-by-layer troubleshooting runbook.
+- **`deploy/README.md`** — VPS deployment & operations.
+- **`extraction-engine/README.md`** — extraction engine internals & config.
 
-The V1 workspace is intentionally a small modular monolith. Keep the boundaries in the codebase, but do not split them into separate services unless a later requirement justifies it.
+### Original specification pack (historical design intent)
+`docs/00`–`docs/18` are the original V1 specification written *before*
+implementation. They capture the intended design and requirements. For the
+**current, as-built** system, rely on `ARCHITECTURE.md` above — where the two
+differ, the implementation docs win.
 
-## Documentation starting point
-
-Read `docs/INDEX.md`, then `docs/00-README.md` through `docs/17-V1-ARCHITECTURE-AT-A-GLANCE.md`.
-
-## First implementation milestone
-
-Build this vertical slice first:
-
-```text
-Create Month
- → Upload Source
- → Enter/Review Receipts & Payments
- → Validate
- → Approve
- → Generate DOCX/PDF
- → QA
- → Final
-```
+## Data & backup
+All state lives in `./data` (SQLite DB + source scans + generated reports).
+Back up = copy that folder: `tar czf backup-$(date +%F).tar.gz data/`.

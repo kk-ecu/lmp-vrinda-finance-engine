@@ -26,7 +26,7 @@ a small modular monolith behind Caddy with automatic HTTPS.
 | Review gates | A month cannot go FINAL without validation PASS + user approval + QA PASS. |
 | Immutable finals | A signed statement is read-only; changes require an audited Reopen → new revision. |
 | Local-first & lightweight | SQLite, local files, modular monolith — no cloud DB, queue, or microservices. |
-| Pluggable extraction | Provider engine is swappable (openrouter/ollama/tesseract/stub) and deletable. |
+| Pluggable extraction | Two product providers (openrouter cloud / ollama local), swappable and deletable; stub is test-only. |
 
 ---
 
