@@ -47,7 +47,14 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
-    log.info("Starting up — env=%s pdf_engine=%s auth=%s", settings.app_env, settings.pdf_engine, settings.auth_enabled)
+    # Default the extraction provider from the environment unless explicitly set:
+    # DEV -> ollama (local-first), PROD -> openrouter. An explicit
+    # EXTRACTION_PROVIDER env var always wins.
+    os.environ.setdefault("EXTRACTION_PROVIDER", settings.default_provider)
+    log.info(
+        "Starting up — env=%s provider=%s pdf_engine=%s auth=%s",
+        settings.app_env, os.environ.get("EXTRACTION_PROVIDER"), settings.pdf_engine, settings.auth_enabled,
+    )
     settings.ensure_directories()
     init_db()
     # Seed AppState (password hash from .env on first run) and warn loudly if the

@@ -131,10 +131,10 @@ class TestConfigFlag:
 
     def test_config_lists_allowed_providers_dev(self, client):
         c = client.get("/api/config").json()
-        # Default test env is 'test' (not production) -> all providers allowed.
+        # Non-production env -> the two product providers, NOT stub/tesseract.
         assert "allowed_providers" in c
-        assert "openrouter" in c["allowed_providers"]
-        assert "stub" in c["allowed_providers"]
+        assert set(c["allowed_providers"]) == {"ollama", "openrouter"}
+        assert "stub" not in c["allowed_providers"]
 
 
 class TestProdProviderLockdown:
@@ -200,8 +200,8 @@ class TestProdProviderLockdown:
             assert r.status_code == 409
             assert "not permitted" in r.json()["detail"]
 
-            # test-bench override to a non-openrouter provider is also blocked.
-            r2 = c.post("/api/test/extract", files={"file": ("s.jpg", b"\xff\xd8\xffx", "image/jpeg")}, data={"provider": "tesseract"})
+            # test-bench override to a non-allowed provider is also blocked in prod.
+            r2 = c.post("/api/test/extract", files={"file": ("s.jpg", b"\xff\xd8\xffx", "image/jpeg")}, data={"provider": "ollama"})
             assert r2.status_code == 409
         app.dependency_overrides.clear()
         get_settings.cache_clear()

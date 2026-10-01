@@ -53,13 +53,25 @@ class Settings(BaseSettings):
     def allowed_providers(self) -> tuple[str, ...]:
         """Extraction providers permitted to serve traffic in this environment.
 
-        In production only the hosted, operationally-supported provider
-        (openrouter) is allowed. Local/experimental providers are blocked so a
-        real deployment can never silently extract via ollama/tesseract/stub.
+        Two product providers:
+          - PROD: openrouter only (hosted, reliable, operationally supported).
+          - DEV : ollama (local) and openrouter.
+        'stub' and 'tesseract' are NOT product providers. 'stub' remains for the
+        offline test suite only (forced via EXTRACTION_PROVIDER in tests); it is
+        never offered in the UI nor accepted here.
         """
         if self.is_production:
             return ("openrouter",)
-        return ("openrouter", "ollama", "tesseract", "stub")
+        return ("ollama", "openrouter")
+
+    @property
+    def default_provider(self) -> str:
+        """The default extraction provider for this environment.
+
+        PROD -> openrouter; DEV -> ollama (local-first). An explicit
+        EXTRACTION_PROVIDER env var still overrides this at the engine level.
+        """
+        return "openrouter" if self.is_production else "ollama"
 
     # Feature flags. Set TEST_EXTRACTION_ENABLED=false to hide the /test-extraction page.
     test_extraction_enabled: bool = True

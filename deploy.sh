@@ -105,8 +105,12 @@ configure() {
     EXTRACTION_PROVIDER="openrouter"
     ok "Production: extraction provider forced to 'openrouter' (others are blocked)."
   else
-    read -rp "  Extraction provider [openrouter/ollama/tesseract/stub] (openrouter): " EXTRACTION_PROVIDER
-    EXTRACTION_PROVIDER="${EXTRACTION_PROVIDER:-openrouter}"
+    # Development: two product providers. Default to local ollama.
+    read -rp "  Extraction provider [ollama/openrouter] (ollama): " EXTRACTION_PROVIDER
+    EXTRACTION_PROVIDER="${EXTRACTION_PROVIDER:-ollama}"
+    if [ "$EXTRACTION_PROVIDER" = "ollama" ]; then
+      warn "ollama requires the Ollama server + 'qwen2.5vl:7b' model on this host (ollama pull qwen2.5vl:7b)."
+    fi
   fi
   OPENROUTER_API_KEY=""
   if [ "$EXTRACTION_PROVIDER" = "openrouter" ]; then

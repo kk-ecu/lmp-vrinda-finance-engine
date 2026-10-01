@@ -410,14 +410,13 @@ flowchart TB
     prompts["prompts.py"]
     parsing["parsing.py<br/>result_from_json (fence-tolerant)"]
 
-    pstub["providers/stub_provider.py"]
     popen["providers/openrouter_provider.py<br/>httpx + OS trust store, lazy import"]
     poll["providers/ollama_provider.py<br/>localhost:11434, lazy import"]
-    ptess["providers/tesseract_provider.py<br/>pytesseract+PIL, lazy import"]
+    pstub["providers/stub_provider.py<br/>test-only, offline fixed data"]
 
     facade --> cfg & reg & schema
     reg --> base
-    reg -. imports in isolation .-> pstub & popen & poll & ptess
+    reg -. imports in isolation .-> popen & poll & pstub
     popen & poll --> prompts & parsing & schema
 ```
 
@@ -561,28 +560,33 @@ stateDiagram-v2
 The system behaves differently by `APP_ENV`, enforced at **both** the API and UI
 so production cannot be driven into an unsupported configuration.
 
+There are **two product extraction providers**: `openrouter` (cloud) and
+`ollama` (local). `stub` exists only for the offline test suite and is never a
+product provider (not in `allowed_providers`, not shown in the UI). `tesseract`
+has been removed.
+
 | Aspect | DEV / local | PROD |
 |---|---|---|
-| Allowed extraction providers | all: openrouter, ollama, tesseract, stub | **openrouter only** |
-| Default provider | configurable | **openrouter** |
-| Test Bench provider dropdown | shows all available | shows **openrouter only** |
-| API behavior for non-openrouter | runs it | **refuses (409)** — won't serve traffic |
+| Allowed providers | `ollama`, `openrouter` | **`openrouter` only** |
+| Default provider | **ollama** (local-first) | **openrouter** |
+| Test Bench dropdown | ollama + openrouter | openrouter only |
+| API behavior for a disallowed provider | n/a (both allowed) | **refuses (409)** |
 | Auth | can be disabled for local dev | always enabled |
 
 **Rationale.** In production the only provider that is reliable, hosted, and
-operationally supported is OpenRouter. Local-only providers (ollama needs a GPU/
-RAM + model; tesseract is weak on handwriting; stub is fake data) must never
-silently serve a real association's financial extraction. The lockdown is
-enforced server-side (so the API itself won't process a non-openrouter request
-in PROD) and reflected in the UI (so the options aren't even offered).
+operationally supported is OpenRouter. Ollama is the free, private, local-first
+option for development (needs the Ollama server + `qwen2.5vl:7b` model + RAM).
+The lockdown is enforced server-side (the API refuses a disallowed provider with
+409 in PROD) and reflected in the UI (`/config.allowed_providers`).
 
 ```mermaid
 flowchart TB
     cfg["APP_ENV"] --> dev{"= production?"}
-    dev -- no --> all["allowed = [openrouter, ollama, tesseract, stub]"]
-    dev -- yes --> only["allowed = [openrouter]<br/>default forced to openrouter"]
+    dev -- no --> all["allowed = [ollama, openrouter]<br/>default = ollama"]
+    dev -- yes --> only["allowed = [openrouter]<br/>default = openrouter"]
     only --> apiguard["API: reject extraction if provider ≠ openrouter → 409"]
-    only --> uiguard["UI: /config.allowed_providers → dropdown shows openrouter only"]
+    all --> uiguard["UI: /config.allowed_providers drives the dropdown"]
+    only --> uiguard
 ```
 
 `deploy.sh` captures `APP_ENV` at deploy time and writes it to `.env.deploy`;

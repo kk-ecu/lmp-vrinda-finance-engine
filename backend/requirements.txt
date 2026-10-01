@@ -7,9 +7,6 @@ SQLAlchemy>=2,<3
 python-docx>=1.1,<2
 weasyprint>=65,<71
 PyYAML>=6,<7
-# Optional: enables the local Tesseract OCR provider (binary installed via Homebrew).
-pytesseract>=0.3.10,<1
-Pillow>=10,<12
 # OS trust store support (uses macOS Keychain / Windows store incl. corporate roots).
 truststore>=0.9
 # Authentication: JWT tokens + bcrypt password hashing.

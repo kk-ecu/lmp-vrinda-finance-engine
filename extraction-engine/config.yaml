@@ -1,7 +1,13 @@
 # Extraction engine configuration.
-# Switch providers with a single line — no code changes required.
+#
+# Provider is normally set by the application via the EXTRACTION_PROVIDER env var
+# (which overrides this file): PROD -> openrouter, DEV -> ollama. This file's
+# `provider` is only the fallback when no env var is set.
+#
+# Product providers: openrouter (cloud) and ollama (local). 'stub' exists for
+# the offline test suite only and is never offered as a product provider.
 extraction:
-  # openrouter | ollama | tesseract | stub
+  # Fallback when EXTRACTION_PROVIDER is unset. openrouter | ollama
   provider: openrouter
 
   # Rows whose confidence is below this are flagged for user review in the UI.
@@ -26,11 +32,4 @@ extraction:
       host: http://localhost:11434
       timeout_seconds: 300
 
-    tesseract:
-      lang: eng
-      # Optional explicit binary path; auto-detected if omitted.
-      # cmd: /opt/homebrew/bin/tesseract
-
-    stub:
-      # No configuration needed; returns a fixed deterministic dataset.
-      {}
+    # stub: test-only (offline). No configuration needed.

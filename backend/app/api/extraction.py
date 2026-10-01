@@ -79,13 +79,19 @@ def _enforce_provider_policy(provider: str | None) -> None:
         # No override — fall back to the configured default.
         if extraction_service.engine_available():
             effective = extraction_service.engine_status().get("provider")
-    allowed = s.allowed_providers
-    if effective and effective not in allowed:
+    if not effective:
+        return
+    # 'stub' is a test-only provider: permitted outside production (so the offline
+    # test suite can force it) but never in production. It is not a product
+    # provider and is excluded from allowed_providers / the UI.
+    if effective == "stub" and not s.is_production:
+        return
+    if effective not in s.allowed_providers:
         raise HTTPException(
             status_code=409,
             detail=(
                 f"Provider '{effective}' is not permitted in {s.app_env}. "
-                f"Allowed: {', '.join(allowed)}."
+                f"Allowed: {', '.join(s.allowed_providers)}."
             ),
         )
 
@@ -155,7 +161,7 @@ async def test_extract(file: UploadFile, provider: str | None = Form(default=Non
     """Run extraction on an uploaded file ad-hoc (no persistence).
 
     Optional `provider` overrides the configured one for this call only, so the
-    UI can compare openrouter / ollama / tesseract / stub side by side.
+    UI can compare the allowed providers (openrouter / ollama) side by side.
     """
     if not get_settings().test_extraction_enabled:
         raise HTTPException(status_code=404, detail="Test extraction is disabled.")

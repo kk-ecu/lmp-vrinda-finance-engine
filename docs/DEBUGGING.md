@@ -374,14 +374,17 @@ extract: done  provider=openrouter model=google/gemini-2.5-flash receipts=1 paym
 ```
 
 ### 6.3 Provider notes
-| Provider | Needs | Works on this VPS? |
+Two product providers; `stub` is test-only.
+| Provider | Needs | Role |
 |---|---|---|
-| `openrouter` | `OPENROUTER_API_KEY`, outbound HTTPS | ✅ (default) |
-| `ollama` | Ollama server + model (~6GB) + RAM | ❌ not installed on VPS |
-| `tesseract` | tesseract binary + pytesseract | ✅ but weak on handwriting |
-| `stub` | nothing (fixed demo data) | ✅ (for testing offline) |
+| `openrouter` | `OPENROUTER_API_KEY`, outbound HTTPS | **PROD default & only allowed provider** |
+| `ollama` | Ollama server + `qwen2.5vl:7b` (~6GB) + RAM | **DEV default** (local-first). Not on the prod VPS. |
+| `stub` | nothing (fixed data) | **Test-only** — forced via `EXTRACTION_PROVIDER=stub` in tests; never served in prod/UI |
 
-Switch provider: edit `EXTRACTION_PROVIDER` in `.env.deploy`, then `$DC up -d`.
+Policy by env: PROD allows `openrouter` only (API returns **409** for anything
+else); DEV allows `ollama`, `openrouter`. The default is set from `APP_ENV`
+(DEV→ollama, PROD→openrouter) unless `EXTRACTION_PROVIDER` is explicitly set in
+`.env.deploy`. Switch: edit `EXTRACTION_PROVIDER`, then `$DC up -d`.
 
 ### 6.4 Common extraction errors
 - `CERTIFICATE_VERIFY_FAILED` → TLS to OpenRouter blocked (corporate proxy on the

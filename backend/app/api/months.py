@@ -162,17 +162,12 @@ def extract_month(month_id: str, replace: bool = True, db: Session = Depends(get
     if not extraction_service.engine_available():
         raise HTTPException(status_code=503, detail="Extraction engine is not available.")
 
-    # Environment policy: in production only openrouter may serve extraction.
-    _settings = get_settings()
-    _active_provider = extraction_service.engine_status().get("provider")
-    if _active_provider not in _settings.allowed_providers:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Provider '{_active_provider}' is not permitted in {_settings.app_env}. "
-                f"Allowed: {', '.join(_settings.allowed_providers)}."
-            ),
-        )
+    # Environment policy: enforce allowed providers (prod = openrouter only;
+    # stub permitted only outside production for tests). Shared with the
+    # extraction router so the rule lives in one place.
+    from app.api.extraction import _enforce_provider_policy
+
+    _enforce_provider_policy(None)
 
     active_sources = [s for s in month.sources if s.status != "IGNORED" and s.path]
     if not active_sources:

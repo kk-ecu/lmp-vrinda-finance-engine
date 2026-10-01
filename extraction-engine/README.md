@@ -14,18 +14,22 @@ Edit `config.yaml` — a one-line change, no code edits:
 
 ```yaml
 extraction:
-  provider: openrouter        # openrouter | ollama | tesseract | stub
+  provider: openrouter        # fallback; app sets it from APP_ENV via EXTRACTION_PROVIDER
   low_confidence_threshold: 0.80
 ```
 
+The application sets the provider from the environment (DEV→ollama, PROD→openrouter)
+via the `EXTRACTION_PROVIDER` env var, which overrides `config.yaml`.
+
 ## Providers
 
-| Provider | Local? | Cost | Handwriting | Notes |
-|----------|--------|------|-------------|-------|
-| `openrouter` | No (cloud) | ~₹0.31/month | Excellent | Needs `OPENROUTER_API_KEY`. Default. |
-| `ollama` | Yes | Free | Good–Very good | Needs Ollama + `qwen2.5vl:7b` (~6 GB). |
-| `tesseract` | Yes | Free | Poor (printed only) | Needs `tesseract` + `pytesseract`. |
-| `stub` | Yes | Free | N/A (fixed data) | Deterministic; used by tests. No deps. |
+Two **product** providers; `stub` is **test-only**.
+
+| Provider | Local? | Cost | Handwriting | Role |
+|----------|--------|------|-------------|------|
+| `openrouter` | No (cloud) | ~₹0.31/month | Excellent | **PROD** default & only allowed; needs `OPENROUTER_API_KEY`. |
+| `ollama` | Yes | Free | Good–Very good | **DEV** default; needs Ollama + `qwen2.5vl:7b` (~6 GB). |
+| `stub` | Yes | Free | N/A (fixed data) | **Test-only**; deterministic, forced via `EXTRACTION_PROVIDER=stub`. |
 
 ## Deletability
 

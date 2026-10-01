@@ -14,11 +14,13 @@ from extraction_engine.providers.base import ExtractionProvider, ProviderUnavail
 
 # Map provider name -> (module path, class name). Add/remove entries freely;
 # deleting a provider's file simply makes it unavailable, not fatal.
+# Product providers: openrouter (cloud) and ollama (local). 'stub' is retained
+# for offline tests only (not a product provider). Deleting a provider's file
+# simply makes it unavailable here — never fatal.
 _PROVIDER_SPECS: dict[str, tuple[str, str]] = {
-    "stub": ("extraction_engine.providers.stub_provider", "StubProvider"),
     "openrouter": ("extraction_engine.providers.openrouter_provider", "OpenRouterProvider"),
     "ollama": ("extraction_engine.providers.ollama_provider", "OllamaProvider"),
-    "tesseract": ("extraction_engine.providers.tesseract_provider", "TesseractProvider"),
+    "stub": ("extraction_engine.providers.stub_provider", "StubProvider"),
 }
 
 # Reasons a provider could not be loaded (name -> message), for diagnostics.
