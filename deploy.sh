@@ -100,10 +100,14 @@ configure() {
   fi
 
   say "Generating secrets and hashing password…"
-  local JWT_SECRET PW_HASH
+  local JWT_SECRET PW_HASH PW_HASH_ESC
   JWT_SECRET="$(rand_secret)"
   PW_HASH="$(hash_password "$p1")"
   [ -n "$PW_HASH" ] || die "Password hashing failed (is Docker working?)."
+
+  # Docker Compose --env-file does $-interpolation. bcrypt hashes contain '$'
+  # (e.g. $2b$12$...), so escape each '$' as '$$' to keep the hash literal.
+  PW_HASH_ESC="${PW_HASH//\$/\$\$}"
 
   umask 077
   cat > "$ENV_FILE" <<EOF
@@ -111,7 +115,7 @@ configure() {
 SITE_ADDRESS=$SITE_ADDRESS
 FRONTEND_ORIGIN=$FRONTEND_ORIGIN
 AUTH_USERNAME=$AUTH_USERNAME
-AUTH_PASSWORD_HASH=$PW_HASH
+AUTH_PASSWORD_HASH=$PW_HASH_ESC
 JWT_SECRET=$JWT_SECRET
 JWT_EXPIRY_HOURS=3
 EXTRACTION_PROVIDER=$EXTRACTION_PROVIDER
