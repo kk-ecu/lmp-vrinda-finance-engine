@@ -1,0 +1,48 @@
+# Production deployment: FastAPI backend + Caddy (serves React + proxies /api + TLS).
+# Run via deploy.sh, which writes the server .env this file reads.
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: lmp-vrinda-api
+    environment:
+      APP_ENV: production
+      DATA_ROOT: /app/data
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      PDF_ENGINE: weasyprint
+      EXTRACTION_ENGINE_PATH: /opt/extraction-engine
+      EXTRACTION_PROVIDER: ${EXTRACTION_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      AUTH_ENABLED: "true"
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-3}
+    volumes:
+      - ../data:/app/data
+      - ../extraction-engine:/opt/extraction-engine:ro
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/Caddy.Dockerfile
+    container_name: lmp-vrinda-web
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    restart: unless-stopped
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

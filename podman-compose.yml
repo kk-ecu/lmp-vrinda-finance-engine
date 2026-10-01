@@ -1,0 +1,38 @@
+# LMP Vrinda Finance Engine — V1 local deployment (Podman on Mac M2).
+# Two runtime containers: FastAPI API and the React web app.
+# SQLite and source/report files persist on the host via the mounted ./data.
+services:
+  api:
+    build:
+      context: ./backend
+    container_name: lmp-vrinda-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: production
+      DATA_ROOT: /app/data
+      FRONTEND_ORIGIN: http://localhost:3000
+      PDF_ENGINE: weasyprint
+      # Extraction engine (mounted below). Default provider is openrouter.
+      EXTRACTION_ENGINE_PATH: /opt/extraction-engine
+      EXTRACTION_PROVIDER: ${EXTRACTION_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+      # Mount the self-contained engine read-only; swap config.yaml on the host.
+      - ./extraction-engine:/opt/extraction-engine:ro
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    container_name: lmp-vrinda-web
+    ports:
+      - "3000:3000"
+    environment:
+      # Browser calls /api; Vite proxies to the api service on the compose network.
+      VITE_API_TARGET: http://api:8000
+      VITE_PORT: "3000"
+    depends_on:
+      - api
+    restart: unless-stopped

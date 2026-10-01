@@ -1,0 +1,36 @@
+# Extraction engine configuration.
+# Switch providers with a single line — no code changes required.
+extraction:
+  # openrouter | ollama | tesseract | stub
+  provider: openrouter
+
+  # Rows whose confidence is below this are flagged for user review in the UI.
+  low_confidence_threshold: 0.80
+
+  providers:
+    openrouter:
+      model: google/gemini-2.5-flash
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      max_image_px: 1600
+      timeout_seconds: 120
+      # TLS: by default verification uses the OS trust store (truststore), which
+      # includes corporate roots from the macOS Keychain — handles proxies that
+      # inject a self-signed root. To override, set ca_bundle to a PEM file, or
+      # verify_ssl: false as a last resort (disables verification).
+      # ca_bundle: /path/to/corporate-root.pem
+      # verify_ssl: false
+
+    ollama:
+      model: qwen2.5vl:7b
+      host: http://localhost:11434
+      timeout_seconds: 300
+
+    tesseract:
+      lang: eng
+      # Optional explicit binary path; auto-detected if omitted.
+      # cmd: /opt/homebrew/bin/tesseract
+
+    stub:
+      # No configuration needed; returns a fixed deterministic dataset.
+      {}

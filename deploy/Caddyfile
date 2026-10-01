@@ -1,0 +1,18 @@
+# Caddy config. {$SITE_ADDRESS} is set by compose from the server .env:
+#   - a domain (e.g. finance.example.com) -> automatic HTTPS via Let's Encrypt
+#   - or :80 (no domain) -> plain HTTP on the server IP
+{$SITE_ADDRESS} {
+	encode gzip
+
+	# API calls go to the FastAPI backend container.
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Everything else is the React single-page app (static files).
+	handle {
+		root * /srv/www
+		try_files {path} /index.html
+		file_server
+	}
+}

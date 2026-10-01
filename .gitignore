@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment
+.env
+.env.deploy
+.env.*.local
+
+# Local financial data — keep out of Git
+/data/database/*
+/data/sources/*
+/data/reports/*
+/data/exports/*
+!/data/**/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*.log
